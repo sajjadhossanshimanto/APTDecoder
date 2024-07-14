@@ -8,6 +8,7 @@ import scipy.signal as signal
 import numpy as np
 from PIL import Image
 import argparse
+from signalProcessor import signalProcessor
 
 # TODO: explain the reason of sampling at 20800
 SAMPLE_RATE = 20800  # intermediate  sample rate
@@ -27,69 +28,6 @@ APT_STRUCTURE = {
     "image_B": (1126, 2035),
     "telemetry_B": (2035, 2080),
 }
-
-
-def stereo_to_mono(
-    stereo_signal: np.ndarray,
-) -> np.ndarray:  # TODO: check for faster implement of this function
-    """
-    Converts stereo signal to mono by taking average
-
-    Parameters:
-        stereo_signal (np.ndarray): Stereo signal
-
-    Returns:
-        np.ndarray: mono signal
-    """
-    if stereo_signal.ndim == 1:
-        # Signal is already mono, return as is
-        return stereo_signal
-    elif stereo_signal.shape[1] == 2:
-        # Average the left and right channels to convert to mono
-        return (stereo_signal[:, 0] + stereo_signal[:, 1]) / 2
-    else:
-        # Unhandled case, return as is
-        return stereo_signal
-
-
-def resample_signal(
-    input_signal: np.nonzero, input_rate: int, resample_rate: int
-) -> (
-    np.ndarray
-):  # TODO: load wav file in another function. separate stereo_to_mono function from here.
-    """
-    Resamples the given audio file to the specified sample rate.
-
-    Parameters:
-        file_name (str): Path to the wav file.
-        resample_rate (int): Desired sample rate of the output signal.
-
-    Returns:
-        np.ndarray: The resampled audio signal.
-    """
-
-    # Resample the signal if necessary
-    if input_rate != resample_rate:
-        resample_factor = resample_rate / input_rate
-        number_of_output_samples = int(resample_factor * input_signal.size)
-        input_signal = signal.resample(input_signal, number_of_output_samples)
-
-    return input_signal
-
-
-def bandpass_filter(signal_data: np.ndarray, lowpass: int, highpass: int):
-    """
-    Parameters:
-        signal_data (np.ndarray): data which need to filtered
-        lowpass (int): lowpass frequency
-        highpass (int): highpass frequency
-
-    Returns
-        np.ndarray: Filtered signal after applying highpass and lowpass filter
-    """
-    sos = signal.butter(8, [highpass, lowpass], "band", fs=SAMPLE_RATE, output="sos")
-    filtered = signal.sosfilt(sos, signal_data)
-    return filtered
 
 
 def remap_signal_value(signal: np.ndarray) -> np.ndarray[np.uint8]:
@@ -114,36 +52,6 @@ def remap_signal_value(signal: np.ndarray) -> np.ndarray[np.uint8]:
 
     # Return the remapped signal as an array of unsigned 8-bit integers
     return remapped.astype(np.uint8)
-
-
-def demodulate(signal_data: np.ndarray) -> np.ndarray:
-    """
-    Demodulates the given AM-modulated signal.
-
-    Parameters:
-        signal_data (np.ndarray): The AM-modulated signal data.
-
-    Returns:
-        np.ndarray: The demodulated signal.
-    """
-    phi = 2 * np.pi * fc / SAMPLE_RATE
-    signal_length = len(signal_data)
-    signal_data_squared = np.square(signal_data)
-
-    # Source: https://raw.githubusercontent.com/martinber/noaa-apt/master/extra/demodulation.pdf
-    amplitude_signal = np.sqrt(
-        signal_data_squared[1:signal_length]
-        + signal_data_squared[0 : signal_length - 1]
-        - 2
-        * signal_data[1:signal_length]
-        * signal_data[0 : signal_length - 1]
-        * np.cos(phi)
-    ) / np.sin(phi)
-
-    # Insert a 0 at the beginning of the array
-    amplitude_signal = np.insert(amplitude_signal, 0, 0)
-
-    return amplitude_signal
 
 
 def histogram_equalization(image: np.ndarray) -> np.ndarray:
@@ -270,11 +178,11 @@ def apt_signal_to_image(raw_signal: np.ndarray, signal_rate: int) -> np.ndarray:
         np.ndarray: 2D Image array
     """
     # Convert stereo to mono audio
-    raw_signal = stereo_to_mono(raw_signal)
+    raw_signal = signalProcessor.stereo_to_mono(raw_signal)
 
     # Resample the signal data at 20800 sample rate
     print(f"Resampling at {SAMPLE_RATE}hz")
-    signal_data = resample_signal(raw_signal, signal_rate, SAMPLE_RATE)
+    signal_data = signalProcessor.resample_signal(raw_signal, signal_rate, SAMPLE_RATE)
 
     # Truncate the signal data to an integer multiple of the sample rate
     truncate = SAMPLE_RATE * int(len(signal_data) // SAMPLE_RATE)
@@ -284,11 +192,13 @@ def apt_signal_to_image(raw_signal: np.ndarray, signal_rate: int) -> np.ndarray:
     print(
         "Applying bandpass filter 1000 highpass and 4000 lowpass "
     )  # TODO: change hardcoded numerical value
-    signal_data_filtered = bandpass_filter(signal_data, lowpass=4000, highpass=1000)
+    signal_data_filtered = signalProcessor.bandpass_filter(
+        signal_data, lowpass=4000, highpass=1000
+    )
 
     # Demodulate the filtered signal data
     print("Demodulating signal")
-    demodulated_signal = demodulate(signal_data_filtered)
+    demodulated_signal = signalProcessor.ampDemod(signal_data_filtered)
 
     # Downsample the demodulated signal data to baud rate (4160 Hz)
     reshaped = demodulated_signal.reshape(len(demodulated_signal) // 5, 5)
