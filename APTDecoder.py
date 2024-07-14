@@ -79,7 +79,7 @@ class APTDecoder:
     def synchronizeAPTSignal(
         self,
         remappedSignal: np.ndarray,
-    ):  # TODO: use two function one to synchronize another to convert 1D to 2D
+    ):
         """
         Synchronizes the given signal by finding the sync frame and converting the 1D signal to a 2D image.
         The sync frame is found by looking for the maximum values of the cross correlation between the signal and a
@@ -99,9 +99,16 @@ class APTDecoder:
         corr = np.correlate(shiftedSignal, syncA, mode="valid")
         peaks, _ = find_peaks(corr, distance=min_distance)
         matrix = np.zeros((len(peaks), 2080), dtype=remappedSignal.dtype)
-
-        for i, peak_index in enumerate(peaks):
+        for i, peak_index in enumerate(peaks[:-1]):
             matrix[i] = remappedSignal[peak_index : peak_index + 2080]
+
+        last_segment = remappedSignal[peaks[-1] : remappedSignal.size]
+        if last_segment.size < 2080:
+            last_segment = np.pad(
+                last_segment, (0, 2080 - last_segment.size), "constant"
+            )
+
+        matrix[-1] = last_segment
 
         return matrix
 
@@ -110,9 +117,7 @@ class APTDecoder:
         Decodes an encoded image file and saves the resulting image.
 
         Parameters:
-            in_file (str): The path to the input file.
-            out_file (str): The path to the output file.
-            rotate (bool, optional): A flag indicating whether the image should be rotated. Default is False.
+            rawSignal (np.ndarray):
 
         Returns:
             np.ndarray: 2D Image array
@@ -152,7 +157,7 @@ class APTDecoder:
 
         # Remap the values of the signal data to a range between 0 and 255
         print("Remapping signal values between 0 and 255")
-        remapped = imageProcessor.remapSignalValue(demodulatedSignal)
+        remapped = imageProcessor.cvrtSignalForImgProcessing(demodulatedSignal)
 
         # Create an image matrix from the signal data
         print("Creating image matrix")

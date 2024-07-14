@@ -4,12 +4,12 @@ import numpy as np
 class imageProcessor:
 
     @staticmethod
-    def remapSignalValue(signal: np.ndarray) -> np.ndarray[np.uint8]:
+    def cvrtSignalForImgProcessing(signal: np.ndarray) -> np.ndarray[np.uint8]:
         """
         Remaps the given signal values within the range 0 to 255.
 
         Parameters:
-            signal (np.ndarray): signal which need to remap #TODO: use better docstring
+            signal (np.ndarray): signal which need to remap
 
         Returns:
             np.ndarray[np.uint8]: The remapped signal, with values in the range 0 to 255.
