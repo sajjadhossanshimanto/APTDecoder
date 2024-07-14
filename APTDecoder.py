@@ -9,18 +9,6 @@ from imageProcessor import imageProcessor
 
 # https://www.sigidwiki.com/wiki/Automatic_Picture_Transmission_(APT)
 # structure of one APT line
-APT_STRUCTURE = {
-    "pixel_per_row": 2080,
-    "pixel_per_channel": 1040,
-    "sync_A": (0, 39),
-    "space_A": (39, 86),
-    "image_A": (86, 995),
-    "telemetry_A": (995, 1040),
-    "sync_B": (1040, 1079),
-    "space_B": (1079, 1126),
-    "image_B": (1126, 2035),
-    "telemetry_B": (2035, 2080),
-}
 
 
 class APTDecoder:
@@ -29,9 +17,20 @@ class APTDecoder:
         self.signalRate = signalRate
         self.intemediateSampleRate = 20800
         self.subCarrierFreq = 2400
+        self.APTStructure = {
+            "pixel_per_row": 2080,
+            "pixel_per_channel": 1040,
+            "sync_A": (0, 39),
+            "space_A": (39, 86),
+            "image_A": (86, 995),
+            "telemetry_A": (995, 1040),
+            "sync_B": (1040, 1079),
+            "space_B": (1079, 1126),
+            "image_B": (1126, 2035),
+            "telemetry_B": (2035, 2080),
+        }
 
-    @staticmethod
-    def rotateImage(matrix):
+    def rotateImage(self, matrix):
         """
         Rotates an image represented as a 2D NumPy array by rearranging the columns of the array.
 
@@ -45,15 +44,19 @@ class APTDecoder:
         """
         # Get slices of the input matrix corresponding to different regions of the image
         sync_space_A = matrix[
-            :, APT_STRUCTURE["sync_A"][0] : APT_STRUCTURE["space_A"][1]
+            :, self.APTStructure["sync_A"][0] : self.APTStructure["space_A"][1]
         ]
-        channel_A = matrix[:, APT_STRUCTURE["image_A"][0] : APT_STRUCTURE["image_A"][1]]
+        channel_A = matrix[
+            :, self.APTStructure["image_A"][0] : self.APTStructure["image_A"][1]
+        ]
         tel_A_2_space_B = matrix[
-            :, APT_STRUCTURE["telemetry_A"][0] : APT_STRUCTURE["space_B"][1]
+            :, self.APTStructure["telemetry_A"][0] : self.APTStructure["space_B"][1]
         ]
-        channel_B = matrix[:, APT_STRUCTURE["image_B"][0] : APT_STRUCTURE["image_B"][1]]
+        channel_B = matrix[
+            :, self.APTStructure["image_B"][0] : self.APTStructure["image_B"][1]
+        ]
         telemetry_B = matrix[
-            :, APT_STRUCTURE["telemetry_B"][0] : APT_STRUCTURE["telemetry_B"][1]
+            :, self.APTStructure["telemetry_B"][0] : self.APTStructure["telemetry_B"][1]
         ]
 
         # Flip the image channels
