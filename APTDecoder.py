@@ -4,11 +4,9 @@
 
 # imports
 import numpy as np
+from scipy.signal import find_peaks
 from signalProcessor import signalProcessor
 from imageProcessor import imageProcessor
-
-# https://www.sigidwiki.com/wiki/Automatic_Picture_Transmission_(APT)
-# structure of one APT line
 
 
 class APTDecoder:
@@ -17,6 +15,8 @@ class APTDecoder:
         self.signalRate = signalRate
         self.intemediateSampleRate = 20800
         self.subCarrierFreq = 2400
+        # https://www.sigidwiki.com/wiki/Automatic_Picture_Transmission_(APT)
+        # structure of one APT line
         self.APTStructure = {
             "pixel_per_row": 2080,
             "pixel_per_channel": 1040,
@@ -91,31 +91,19 @@ class APTDecoder:
         Returns:
             np.ndarray: The resulting 2D image.
         """
-        # hard coded syncA
-        syncA = np.array([0, 0, 255, 255] * 7 + [0 * 7])
-        syncA = [x - 128 for x in syncA]
 
-        # list of maximum correlations found (index, corr)
-        peaks = [(0, 0)]
+        syncA = np.array([0, 0, 255, 255] * 7 + [0 * 7]) - 128  # hard coded syncA
 
-        # using minimum distance as 2000
-        min_distance = 2000
+        min_distance = 2000  # using minimum distance as 2000
         shiftedSignal = remappedSignal.astype(int) - 128
+        corr = np.correlate(shiftedSignal, syncA, mode="valid")
+        peaks, _ = find_peaks(corr, distance=min_distance)
+        matrix = np.zeros((len(peaks), 2080), dtype=remappedSignal.dtype)
 
-        # finds the maximum value of correlation between syncA and signal_data
-        for i in range(len(shiftedSignal) - len(syncA)):
-            corr = np.dot(syncA, shiftedSignal[i : i + len(syncA)])
-            if i - peaks[-1][0] > min_distance:
-                peaks.append((i, corr))
-            elif corr > peaks[-1][1]:
-                peaks[-1] = (i, corr)
+        for i, peak_index in enumerate(peaks):
+            matrix[i] = remappedSignal[peak_index : peak_index + 2080]
 
-        matrix = []
-
-        for i in range(len(peaks) - 1):
-            matrix.append(remappedSignal[peaks[i][0] : peaks[i][0] + 2080])
-
-        return np.array(matrix)
+        return matrix
 
     def APTSignalToImage(self, rawSignal: np.ndarray) -> np.ndarray:
         """
@@ -158,7 +146,7 @@ class APTDecoder:
             signalDataFiltered, self.subCarrierFreq, self.intemediateSampleRate
         )
 
-        # Downsample the demodulated signal data to baud rate (4160 Hz)
+        # Downsample the demodulated signal data to 4160 Hz
         reshaped = demodulatedSignal.reshape(len(demodulatedSignal) // 5, 5)
         demodulatedSignal = reshaped[:, 2]
 
