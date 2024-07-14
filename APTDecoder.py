@@ -1,6 +1,6 @@
 # Author: Muhtasim Redwan (Avioncis, BSMRAAU)
 # GitHub: https://github.com/redwine-1
-# Time: January 2023
+# Time: July 2024
 
 # imports
 import numpy as np
@@ -29,11 +29,11 @@ APT_STRUCTURE = {
 
 class APTDecoder:
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, signalRate: int) -> None:
+        self.signalRate = signalRate
 
     @staticmethod
-    def rotate_image(self, matrix):
+    def rotateImage(matrix):
         """
         Rotates an image represented as a 2D NumPy array by rearranging the columns of the array.
 
@@ -75,9 +75,9 @@ class APTDecoder:
         )
         return rotated_matrix
 
-    def synchronize_apt_signal(
+    def synchronizeAPTSignal(
         self,
-        remapped_signal,
+        remappedSignal: np.ndarray,
     ):  # TODO: use two function one to synchronize another to convert 1D to 2D
         """
         Synchronizes the given signal by finding the sync frame and converting the 1D signal to a 2D image.
@@ -99,11 +99,11 @@ class APTDecoder:
 
         # using minimum distance as 2000
         min_distance = 2000
-        shifted_signal = [x - 128 for x in remapped_signal]
+        shiftedSignal = remappedSignal.astype(int) - 128
 
         # finds the maximum value of correlation between syncA and signal_data
-        for i in range(len(shifted_signal) - len(syncA)):
-            corr = np.dot(syncA, shifted_signal[i : i + len(syncA)])
+        for i in range(len(shiftedSignal) - len(syncA)):
+            corr = np.dot(syncA, shiftedSignal[i : i + len(syncA)])
             if i - peaks[-1][0] > min_distance:
                 peaks.append((i, corr))
             elif corr > peaks[-1][1]:
@@ -112,13 +112,11 @@ class APTDecoder:
         matrix = []
 
         for i in range(len(peaks) - 1):
-            matrix.append(remapped_signal[peaks[i][0] : peaks[i][0] + 2080])
+            matrix.append(remappedSignal[peaks[i][0] : peaks[i][0] + 2080])
 
         return np.array(matrix)
 
-    def apt_signal_to_image(
-        self, raw_signal: np.ndarray, signal_rate: int
-    ) -> np.ndarray:
+    def APTSignalToImage(self, rawSignal: np.ndarray) -> np.ndarray:
         """
         Decodes an encoded image file and saves the resulting image.
 
@@ -131,43 +129,43 @@ class APTDecoder:
             np.ndarray: 2D Image array
         """
         # Convert stereo to mono audio
-        raw_signal = signalProcessor.stereo_to_mono(raw_signal)
+        rawSignal = signalProcessor.stereoToMono(rawSignal)
 
         # Resample the signal data at 20800 sample rate
         print(f"Resampling at {SAMPLE_RATE}hz")
-        signal_data = signalProcessor.resample_signal(
-            raw_signal, signal_rate, SAMPLE_RATE
+        signalData = signalProcessor.resampleSignal(
+            rawSignal, self.signalRate, SAMPLE_RATE
         )
 
         # Truncate the signal data to an integer multiple of the sample rate
-        truncate = SAMPLE_RATE * int(len(signal_data) // SAMPLE_RATE)
-        signal_data = signal_data[: int(truncate)]
+        truncate = SAMPLE_RATE * int(len(signalData) // SAMPLE_RATE)
+        signalData = signalData[: int(truncate)]
 
         # Apply a bandpass filter to the signal data
         print(
             "Applying bandpass filter 1000 highpass and 4000 lowpass "
         )  # TODO: change hardcoded numerical value
-        signal_data_filtered = signalProcessor.bandpass_filter(
-            signal_data, lowpass=4000, highpass=1000
+        signalDataFiltered = signalProcessor.bandpassFilter(
+            signalData, lowpass=4000, highpass=1000
         )
 
         # Demodulate the filtered signal data
         print("Demodulating signal")
-        demodulated_signal = signalProcessor.ampDemod(signal_data_filtered)
+        demodulatedSignal = signalProcessor.ampDemod(signalDataFiltered)
 
         # Downsample the demodulated signal data to baud rate (4160 Hz)
-        reshaped = demodulated_signal.reshape(len(demodulated_signal) // 5, 5)
-        demodulated_signal = reshaped[:, 2]
+        reshaped = demodulatedSignal.reshape(len(demodulatedSignal) // 5, 5)
+        demodulatedSignal = reshaped[:, 2]
 
         # Remap the values of the signal data to a range between 0 and 255
         print("Remapping signal values between 0 and 255")
-        remapped = imageProcessor.remap_signal_value(demodulated_signal)
+        remapped = imageProcessor.remapSignalValue(demodulatedSignal)
 
         # Create an image matrix from the signal data
         print("Creating image matrix")
-        image_matrix = self.synchronize_apt_signal(remapped)
+        imageMatrix = self.synchronizeAPTSignal(remapped)
 
         # Perform histogram equalization on the image matrix
-        image_matrix = imageProcessor.histogram_equalization(np.array(image_matrix))
+        imageMatrix = imageProcessor.histogramEqualization(np.array(imageMatrix))
 
-        return image_matrix
+        return imageMatrix

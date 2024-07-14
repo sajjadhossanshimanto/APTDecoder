@@ -12,7 +12,7 @@ fc = 2400  # sub carrier frequency
 
 class signalProcessor:
     @staticmethod
-    def stereo_to_mono(stereo_signal: np.ndarray) -> np.ndarray:
+    def stereoToMono(stereo_signal: np.ndarray) -> np.ndarray:
         """
         Converts stereo signal to mono by taking the average of the two channels.
 
@@ -30,7 +30,7 @@ class signalProcessor:
             raise ValueError("Unsupported signal format")
 
     @staticmethod
-    def resample_signal(
+    def resampleSignal(
         input_signal: np.nonzero, input_rate: int, resample_rate: int
     ) -> np.ndarray:
         """
@@ -81,7 +81,7 @@ class signalProcessor:
 
         return amplitude_signal
 
-    def bandpass_filter(signal_data: np.ndarray, lowpass: int, highpass: int):
+    def bandpassFilter(signal_data: np.ndarray, lowpass: int, highpass: int):
         """
         Parameters:
             signal_data (np.ndarray): data which need to filtered
