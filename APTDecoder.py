@@ -7,10 +7,6 @@ import numpy as np
 from signalProcessor import signalProcessor
 from imageProcessor import imageProcessor
 
-# TODO: explain the reason of sampling at 20800
-SAMPLE_RATE = 20800  # intermediate  sample rate
-fc = 2400  # sub carrier frequency
-
 # https://www.sigidwiki.com/wiki/Automatic_Picture_Transmission_(APT)
 # structure of one APT line
 APT_STRUCTURE = {
@@ -31,6 +27,8 @@ class APTDecoder:
 
     def __init__(self, signalRate: int) -> None:
         self.signalRate = signalRate
+        self.intemediateSampleRate = 20800
+        self.subCarrierFreq = 2400
 
     @staticmethod
     def rotateImage(matrix):
@@ -132,13 +130,15 @@ class APTDecoder:
         rawSignal = signalProcessor.stereoToMono(rawSignal)
 
         # Resample the signal data at 20800 sample rate
-        print(f"Resampling at {SAMPLE_RATE}hz")
+        print(f"Resampling at {self.intemediateSampleRate}hz")
         signalData = signalProcessor.resampleSignal(
-            rawSignal, self.signalRate, SAMPLE_RATE
+            rawSignal, self.signalRate, self.intemediateSampleRate
         )
 
         # Truncate the signal data to an integer multiple of the sample rate
-        truncate = SAMPLE_RATE * int(len(signalData) // SAMPLE_RATE)
+        truncate = self.intemediateSampleRate * (
+            signalData.size // self.intemediateSampleRate
+        )
         signalData = signalData[: int(truncate)]
 
         # Apply a bandpass filter to the signal data
@@ -146,12 +146,14 @@ class APTDecoder:
             "Applying bandpass filter 1000 highpass and 4000 lowpass "
         )  # TODO: change hardcoded numerical value
         signalDataFiltered = signalProcessor.bandpassFilter(
-            signalData, lowpass=4000, highpass=1000
+            signalData, self.intemediateSampleRate, lowpass=4000, highpass=1000
         )
 
         # Demodulate the filtered signal data
         print("Demodulating signal")
-        demodulatedSignal = signalProcessor.ampDemod(signalDataFiltered)
+        demodulatedSignal = signalProcessor.ampDemod(
+            signalDataFiltered, self.subCarrierFreq, self.intemediateSampleRate
+        )
 
         # Downsample the demodulated signal data to baud rate (4160 Hz)
         reshaped = demodulatedSignal.reshape(len(demodulatedSignal) // 5, 5)

@@ -6,11 +6,9 @@ import numpy as np
 import scipy.io.wavfile as wav
 import scipy.signal as signal
 
-SAMPLE_RATE = 20800  # intermediate  sample rate
-fc = 2400  # sub carrier frequency
-
 
 class signalProcessor:
+
     @staticmethod
     def stereoToMono(stereo_signal: np.ndarray) -> np.ndarray:
         """
@@ -52,7 +50,9 @@ class signalProcessor:
         return input_signal
 
     @staticmethod
-    def ampDemod(signal_data: np.ndarray) -> np.ndarray:
+    def ampDemod(
+        signal_data: np.ndarray, carrierFrequency: int, sampleFrequency: int
+    ) -> np.ndarray:
         """
         Demodulates the given AM-modulated signal.
 
@@ -62,7 +62,7 @@ class signalProcessor:
         Returns:
             np.ndarray: The demodulated signal.
         """
-        phi = 2 * np.pi * fc / SAMPLE_RATE
+        phi = 2 * np.pi * carrierFrequency / sampleFrequency
         signal_length = len(signal_data)
         signal_data_squared = np.square(signal_data)
 
@@ -81,7 +81,13 @@ class signalProcessor:
 
         return amplitude_signal
 
-    def bandpassFilter(signal_data: np.ndarray, lowpass: int, highpass: int):
+    def bandpassFilter(
+        signal_data: np.ndarray,
+        sampleFreq: int,
+        lowpass: int,
+        highpass: int,
+        filterOrder: int = 8,
+    ):
         """
         Parameters:
             signal_data (np.ndarray): data which need to filtered
@@ -92,7 +98,7 @@ class signalProcessor:
             np.ndarray: Filtered signal after applying highpass and lowpass filter
         """
         sos = signal.butter(
-            8, [highpass, lowpass], "band", fs=SAMPLE_RATE, output="sos"
+            filterOrder, [highpass, lowpass], "band", fs=sampleFreq, output="sos"
         )
         filtered = signal.sosfilt(sos, signal_data)
         return filtered
