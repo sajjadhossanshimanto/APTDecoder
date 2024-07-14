@@ -1,3 +1,7 @@
+# Author: Muhtasim Redwan (Avionics, BSMRAAU)
+# GitHub: https://github.com/redwine-1
+# Time: July 2024
+
 import argparse
 import scipy.io.wavfile as wav
 from PIL import Image
