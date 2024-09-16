@@ -85,6 +85,7 @@ class signalProcessor:
 
         return amplitude_signal
 
+    @staticmethod
     def bandpassFilter(
         input_signal: np.ndarray,
         sampleFreq: int,
